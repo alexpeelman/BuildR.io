@@ -5,7 +5,7 @@ class ProjectDefinition(object):
         self.revision = revision
         self.string_representation = self.name + " " + self.version + " " + self.revision
 
-    def __str__(self):
+    def __repr__(self):
         return self.string_representation
 
     def __eq__(self, other):

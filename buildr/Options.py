@@ -14,9 +14,13 @@ class Options(object):
                                  help="Skip dependency checks. Otherwise it is assured that occurrences of different versions "
                                       "of the same project will raise an exception",
                                  action="store_true")
-        self.parser.add_argument("-ar", "--allowed-repositories",
-                                 help="A comma separated list of repository names to resolve binaries from eg. repo-x, repo-y. "
-                                      "Fails when no match exists in the repositories section of buildr.json")
+        # self.parser.add_argument("-ar", "--allowed-repositories",
+        #                          help="A comma separated list of repository names to resolve binaries from eg. repo-x, repo-y. "
+        #                               "Fails when no match exists in the repositories section of buildr.json")
+        self.parser.add_argument('-v', '--verbose',
+                                 help="Print lots of debugging statements ",
+                                 action="store_const", dest="loglevel", const=logging.DEBUG, default=logging.INFO,
+                                 )
         build_group.add_argument("-s", "--source-build",
                                  help="Force builds from source code. Skips binary resolving",
                                  action="store_true")
@@ -30,7 +34,7 @@ class Options(object):
                                  action="store_true")
 
         self.values = self.parser.parse_args(args)
-        logging.debug("[options] %s", self.values)
+        logging.info("[options] %s", self.values)
 
     """
     Returns the directory to build from, defaults to '.'
@@ -74,3 +78,6 @@ class Options(object):
 
     def resolve_binaries_from(self):
         return self.values.skip_build
+
+    def loglevel(self):
+        return self.values.loglevel

@@ -21,16 +21,16 @@ class Definition(object):
     DEPENDENCIES = "dependencies"
     FOLDER = "folder"
 
-    def __init__(self, options, path=os.getcwd(), metadata=Metadata()):
+    def __init__(self, options, metadata=Metadata(), path=os.getcwd()):
         os.chdir(path)
         logging.info("[cwd] %s", os.getcwd())
 
         self.options = options
         self.project_definition = None
         self.metadata = metadata
-        self.path = path
-        self.file = path + "/" + Definition.FILE_NAME
-        self.properties = self.__readFile__(self.file)
+        self.path = os.getcwd()
+        # self.file = path + "/" + Definition.FILE_NAME
+        self.properties = self.__readFile__(Definition.FILE_NAME)
         self.__version__()
         self.__revision__()
         self.__generateProperties__()
@@ -51,11 +51,15 @@ class Definition(object):
         try:
             with open(path) as data_file:
                 return json.load(data_file)
+        except ValueError as e:
+            logging.error("[error] Invalid JSON %s/%s : %s", self.path, path, e)
+            raise e
         except IOError as e:
-            logging.error("Error while loading %s : %s", path, e.strerror)
+            logging.error("[error] Problem while loading %s : %s", path, e.strerror)
             raise e
 
     def __generateProperties__(self):
+        logging.debug(os.getcwd())
         env = Environment(loader=FileSystemLoader(self.path))
         template = env.get_template(Definition.FILE_NAME)
         rendered_template = template.render(self.properties)
@@ -83,7 +87,7 @@ class Definition(object):
         self.properties[Definition.PROJECT][Definition.REVISION][Definition.RESULT] = revision
         logging.info("[revision] %s", revision)
 
-    def __resolveOrBuild__(self):
+    def __resolve_or_build__(self):
         source_build_requested = self.options.source_build()
         binary_build_requested = self.options.binary_build()
 
@@ -140,6 +144,7 @@ class Definition(object):
                 logging.info("[exists] %s", folder)
             else:
                 logging.info("[resolve] %s", folder)
+                os.makedirs(folder)
                 self.__run_command__(command)
 
             logging.info("[verify] %s", buildr)
@@ -157,6 +162,11 @@ class Definition(object):
         finally:
             os.chdir(cwd)
 
+    def __generate_metadata__(self):
+        #todo write to metadata file
+        for project in self.metadata.dependencies:
+            logging.debug("%s", project)
+
     def get_project_definition(self):
         if not self.project_definition:
             self.project_definition = ProjectDefinition(
@@ -169,7 +179,8 @@ class Definition(object):
 
     def build(self):
         logging.info("[project] %s", self.get_project_definition())
-        self.__resolveOrBuild__()
+        self.__resolve_or_build__()
+        self.__generate_metadata__()
 
     def properties(self):
         return self.properties
