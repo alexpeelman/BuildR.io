@@ -1,5 +1,9 @@
-import os, subprocess, json, logging
+import os
+import json
+import logging
 import Util
+from Metadata import Metadata
+from ProjectDefinition import ProjectDefinition
 from jinja2 import Environment, FileSystemLoader
 
 
@@ -17,15 +21,29 @@ class Definition(object):
     DEPENDENCIES = "dependencies"
     FOLDER = "folder"
 
-    def __init__(self, path=os.getcwd()):
+    def __init__(self, options, path=os.getcwd(), metadata=Metadata()):
         os.chdir(path)
         logging.info("[cwd] %s", os.getcwd())
 
+        self.options = options
+        self.project_definition = None
+        self.metadata = metadata
         self.path = path
         self.file = path + "/" + Definition.FILE_NAME
         self.properties = self.__readFile__(self.file)
         self.__version__()
+        self.__revision__()
         self.__generateProperties__()
+        self.__verify_project__versioning__()
+
+    def __verify_project__versioning__(self):
+        other_versions = self.metadata.get_dependencies_with_different_version(self.get_project_definition())
+
+        if not self.options.skip_dependency_checking() and other_versions:
+            logging.error("[version mismatch] The same project with another version has been encountered %s", other_versions)
+            raise ValueError("Version mismatch encountered for %s, other versions %s. Please verify build dependencies.",
+                             self.get_project_definition(),
+                             other_versions)
 
     def __readFile__(self, path):
         logging.debug("[load definition] %s", path)
@@ -66,35 +84,47 @@ class Definition(object):
         logging.info("[revision] %s", revision)
 
     def __resolveOrBuild__(self):
-        resolved = True
+        source_build_requested = self.options.source_build()
+        binary_build_requested = self.options.binary_build()
 
-        for repository in self.properties[Definition.REPOSITORIES]:
-            logging.info("[resolve] %s", repository[Definition.NAME])
-            command = repository[Definition.RESOLVE]
-            try:
-                self.__run_command__(command)
-            except Exception as e:
-                logging.error("Error while resolving %s via %s : %s", self.get_project_name(), command, e)
-                resolved = False
+        if binary_build_requested or not source_build_requested:
+            for repository in self.properties[Definition.REPOSITORIES]:
+                logging.info("[resolve] %s", repository[Definition.NAME])
+                command = repository[Definition.RESOLVE]
+                try:
+                    self.__run_command__(command)
+                except ValueError as e:
+                    logging.error("Error while resolving %s via %s : %s", self.get_project_definition(), command, e)
+                    if binary_build_requested:
+                        logging.debug("[resolve] binary build requested, raising error and aborting build %s",
+                                      self.get_project_definition())
+                        raise e
+                    else:
+                        logging.debug("[resolve] forcing source build of %s", self.get_project_definition())
+                        source_build_requested = True
 
-        if not resolved:
+        if source_build_requested:
             self.__build__()
 
     def __build__(self):
-        self.__handle_dependencies__();
+        self.__handle_dependencies__()
 
-        logging.info("[build] %s", self.get_project_name())
-        self.__run_command__(self.properties[Definition.BUILD][Definition.COMMAND])
+        skip_build = self.options.skip_build()
+        if not skip_build:
+            logging.info("[build] %s", self.get_project_definition())
+            self.__run_command__(self.properties[Definition.BUILD][Definition.COMMAND])
+        else:
+            logging.info("[build] skipping build %s", self.get_project_definition())
 
     def __run_command__(self, command):
         return Util.run_command(command)
 
     def __handle_dependencies__(self):
         if not self.properties.has_key(Definition.DEPENDENCIES):
-            logging.info("[dependency management] %s has no dependencies", self.get_project_name())
+            logging.info("[dependency management] %s has no dependencies", self.get_project_definition())
             return
 
-        logging.info("[dependency management] %s", self.get_project_name())
+        logging.info("[dependency management] %s", self.get_project_definition())
         for dependency in self.properties[Definition.DEPENDENCIES]:
             self.__handle_dependency__(dependency)
 
@@ -115,23 +145,30 @@ class Definition(object):
             logging.info("[verify] %s", buildr)
             if os.path.isfile(buildr):
                 logging.info("[build node] %s", buildr)
-                Definition(folder).build()
+                definition = Definition(self.options, path=folder, metadata=self.metadata)
+                definition.build()
+                self.metadata.add_dependency(definition.get_project_definition())
             else:
-                logging.warning("[leave node] %s", folder)
+                logging.warning("[dependency node] %s", folder)
 
         except Exception as e:
-            logging.error("[error %s] could not resolve %s %s", self.get_project_name(), command, e)
+            logging.error("[error %s] could not resolve %s %s", self.get_project_definition(), command, e)
             raise e
         finally:
             os.chdir(cwd)
 
-    def get_project_name(self):
-        return self.properties[Definition.PROJECT][Definition.NAME] + " " + \
-               self.properties[Definition.PROJECT][Definition.VERSION][Definition.RESULT]
+    def get_project_definition(self):
+        if not self.project_definition:
+            self.project_definition = ProjectDefinition(
+                self.properties[Definition.PROJECT][Definition.NAME],
+                self.properties[Definition.PROJECT][Definition.VERSION][Definition.RESULT],
+                self.properties[Definition.PROJECT][Definition.REVISION][Definition.RESULT],
+            )
+
+        return self.project_definition
 
     def build(self):
-        logging.info("[project] %s", self.get_project_name())
-        self.__revision__()
+        logging.info("[project] %s", self.get_project_definition())
         self.__resolveOrBuild__()
 
     def properties(self):

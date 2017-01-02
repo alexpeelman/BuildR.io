@@ -12,7 +12,7 @@ def run_command(command):
     exitcode = process.wait()
 
     if exitcode != 0:
-        raise ValueError(command + " exited with " + exitcode)
+        raise ValueError("command exited with code", exitcode)
 
     return out
 
