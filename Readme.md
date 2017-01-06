@@ -1,6 +1,12 @@
-# BuildR
 
-#### Table of Contents
+    ██████╗ ██╗   ██╗██╗██╗     ██████╗ ██████╗    ██╗ ██████╗
+    ██╔══██╗██║   ██║██║██║     ██╔══██╗██╔══██╗   ██║██╔═══██╗
+    ██████╔╝██║   ██║██║██║     ██║  ██║██████╔╝   ██║██║   ██║
+    ██╔══██╗██║   ██║██║██║     ██║  ██║██╔══██╗   ██║██║   ██║
+    ██████╔╝╚██████╔╝██║███████╗██████╔╝██║  ██║██╗██║╚██████╔╝
+    ╚═════╝  ╚═════╝ ╚═╝╚══════╝╚═════╝ ╚═╝  ╚═╝╚═╝╚═╝ ╚═════╝
+
+# Table of Contents
 
 1. [Overview](#overview)
 2. [buildr.json](#buildr.json)
@@ -8,7 +14,7 @@
 4. [Limitations](#limitations)
 5. [Copyright and License](#license)
 
-## Overview
+# Overview
 
 BuildR aims to be an environment agnostic and zero opinionated recursive build tool.
 It focuses on the general steps performed when building stuff not on the how. 
@@ -24,7 +30,7 @@ This build tree will be traversed depth first, meaning that leave nodes are buil
 assuring that all dependencies are available when running the build.
 
    
-## buildr.json   
+# buildr.json   
 
 BuildR starts from a very simple template `buildr.json` that expects 
    * A project definition
@@ -83,7 +89,7 @@ An example
 
 Lets describe each part of the definition file in depth.
  
-### project
+## project
 
 ```
 {
@@ -108,7 +114,7 @@ The project property describes the metadata related to the source code. Required
    In this particular case the git commit hash is extracted via a bash command.
    
    
-### build
+## build
 ```
 {
   "build":{
@@ -127,7 +133,7 @@ The project property describes the metadata related to the source code. Required
 The build property has only one required property
   * command, which is `executed` to build the source code. This can be a one liner, BASH script, a make command, ...
   
-### dependencies
+## dependencies
 ```  
 {
   "dependencies":[
@@ -144,7 +150,7 @@ Required properties for a dependency entry are
   * folder, used to verify if a dependency has been resolved by checking the existence (not the content) of the folder
   * resolve, a command used to fetch the dependency. Please do pay attention that the resolved result must end up in the same folder described in the previous bullet point. 
 
-### repositories
+## repositories
 ```
 {
   "repositories":[
@@ -164,14 +170,14 @@ Required properties
  * resolve, when a dependency is handled BuildR first tries to fetch the binaries from the repositories by invoking this command. 
 
   
-## TODO
+# TODO
    * Use and expose environment variables
  
-## Limitations
+# Limitations
 
 This project is in POC and incubation phase.
 
-## Copyright and License
+#Copyright and License
 
 Copyright (C) 2016 Alex Peelman
 

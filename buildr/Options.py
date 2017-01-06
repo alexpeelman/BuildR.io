@@ -10,7 +10,7 @@ class Options(object):
         self.parser.add_argument("-d", "--directory",
                                  help="Build directory to start from. The directory must contain a buildr.json file",
                                  default=".")
-        self.parser.add_argument("-sdc", "--skip-dependency-checking",
+        self.parser.add_argument("--skip-dependency-checking",
                                  help="Skip dependency checks. Otherwise it is assured that occurrences of different versions "
                                       "of the same project will raise an exception",
                                  action="store_true")
@@ -29,7 +29,7 @@ class Options(object):
                                       "Applies only to dependencies, the root project is build from source after all "
                                       "binaries are resolved",
                                  action="store_true")
-        build_group.add_argument("-skip", "--skip-build",
+        build_group.add_argument("--skip-build",
                                  help="Skip builds but generate metadata",
                                  action="store_true")
 

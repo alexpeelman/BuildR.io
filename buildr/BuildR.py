@@ -1,4 +1,5 @@
 import sys, os, logging, coloredlogs
+import pkg_resources
 from Options import Options
 from Definition import Definition
 
@@ -18,13 +19,14 @@ class BuildR(object):
 
 
 def print_ascii_art(path):
-    f = open(path + '/ascii.txt', 'r')  # open file in read mode
+    ascii_file = pkg_resources.resource_filename('buildr', 'ascii.txt')
+    f = open(ascii_file, 'r')  # open file in read mode
     data = f.read()  # copy to a string
     f.close()  # close the file
     print data
 
 
-if __name__ == '__main__':
+def main():
     print_ascii_art(os.path.dirname(sys.argv[0]))
     options = Options(sys.argv[1:])
 
@@ -37,3 +39,7 @@ if __name__ == '__main__':
     definition = buildR.build()
     logging.info("[dependencies] %s", definition.metadata.dependencies)
     logging.info("BuildR done !")
+
+
+if __name__ == '__main__':
+    main()
