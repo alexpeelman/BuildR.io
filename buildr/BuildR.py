@@ -3,6 +3,8 @@ import pkg_resources
 from Options import Options
 from Definition import Definition
 
+__version__ = '0.0.1a1'
+
 
 class BuildR(object):
     def __init__(self, options):
@@ -30,6 +32,10 @@ def main():
     print_ascii_art(os.path.dirname(sys.argv[0]))
     options = Options(sys.argv[1:])
 
+    if options.version():
+        print "Version " + __version__
+        sys.exit(0)
+
     logging.basicConfig(stream=sys.stdout, level=options.loglevel())
     coloredlogs.install(level=options.loglevel())
     logging.getLogger('BuildR')
@@ -37,7 +43,7 @@ def main():
 
     buildR = BuildR(options)
     definition = buildR.build()
-    logging.info("[dependencies] %s", definition.metadata.dependencies)
+    logging.info("[metadata] %s", definition.metadata.dependencies)
     logging.info("BuildR done !")
 
 

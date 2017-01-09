@@ -1,7 +1,6 @@
 import argparse
 import logging
 
-
 class Options(object):
     def __init__(self, args):
         self.parser = argparse.ArgumentParser()
@@ -31,6 +30,9 @@ class Options(object):
                                  action="store_true")
         build_group.add_argument("--skip-build",
                                  help="Skip builds but generate metadata",
+                                 action="store_true")
+        build_group.add_argument("--version",
+                                 help="Show the version number and exit",
                                  action="store_true")
 
         self.values = self.parser.parse_args(args)
@@ -81,3 +83,6 @@ class Options(object):
 
     def loglevel(self):
         return self.values.loglevel
+
+    def version(self):
+        return self.values.version

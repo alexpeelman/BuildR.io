@@ -91,7 +91,7 @@ class Definition(object):
         source_build_requested = self.options.source_build()
         binary_build_requested = self.options.binary_build()
 
-        if binary_build_requested or not source_build_requested:
+        if binary_build_requested:
             for repository in self.properties[Definition.REPOSITORIES]:
                 logging.info("[resolve] %s", repository[Definition.NAME])
                 command = repository[Definition.RESOLVE]
@@ -107,7 +107,7 @@ class Definition(object):
                         logging.debug("[resolve] forcing source build of %s", self.get_project_definition())
                         source_build_requested = True
 
-        if source_build_requested:
+        elif source_build_requested or not binary_build_requested:
             self.__build__()
 
     def __build__(self):
