@@ -9,10 +9,11 @@
 # Table of Contents
 
 1. [Overview](#overview)
-2. [buildr.json](#buildr.json)
-3. [TODO](#todo)
-4. [Limitations](#limitations)
-5. [Copyright and License](#license)
+2. [Running](#running)
+3. [buildr.json](#buildr.json)
+4. [TODO](#todo)
+5. [Limitations](#limitations)
+6. [Copyright and License](#license)
 
 # Overview
 
@@ -29,7 +30,21 @@ Extra points go to repositories that can be queried to retrieve binaries based o
 This build tree will be traversed depth first, meaning that leave nodes are build or resolved first 
 assuring that all dependencies are available when running the build.
 
+# Running
+## From source
+```
+Alexs-MBP:BuildR.io pea$ python buildr/BuildR.py -d <folder containing buildr.json>
+```
+## Packaging and running on Mac OS X
+```
+Alexs-MBP:BuildR.io pea$ ./package.sh
+... 
+Processing ./dist/buildr-0.0.1a1-py2.py3-none-any.whl
+Installing collected packages: buildr
+Successfully installed buildr-0.0.1a1 
+```
    
+Alexs-MBP:BuildR.io pea$ buildr -d <folder containing buildr.json>   
 # buildr.json   
 
 BuildR starts from a very simple template `buildr.json` that expects 
@@ -179,6 +194,16 @@ This project is in POC and incubation phase.
 
 #Copyright and License
 
-Copyright (C) 2016 Alex Peelman
+Copyright 2016 Alex Peelman
 
-License still under debate 
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License. 
