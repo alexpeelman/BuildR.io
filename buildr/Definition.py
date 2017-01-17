@@ -4,7 +4,7 @@ import logging
 import Util
 from Metadata import Metadata
 from ProjectDefinition import ProjectDefinition
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader, DictLoader, Template, StrictUndefined, UndefinedError
 
 
 class Definition(object):
@@ -60,16 +60,37 @@ class Definition(object):
 
     def __generateProperties__(self):
         logging.debug(os.getcwd())
-        env = Environment(loader=FileSystemLoader(self.path))
-        template = env.get_template(Definition.FILE_NAME)
-        rendered_template = template.render(self.properties)
 
         try:
-            new_properties = json.loads(rendered_template)
-            self.properties = Util.merge_dicts(self.properties, new_properties)
-            logging.debug("[properties] : %s", self.properties)
-        except ValueError as e:
-            logging.error("Failed to parse JSON %s from template content\n %s", e, rendered_template)
+            env = Environment(loader=FileSystemLoader(self.path), undefined=StrictUndefined)
+            template = env.get_template(Definition.FILE_NAME)
+            rendered_template = template.render(self.properties)
+        except UndefinedError as e:
+            logging.error("Failed to resolve variable : %s", e.message)
+            raise e
+
+        number_of_variables = rendered_template.count("{{")
+
+        while number_of_variables > 0:
+            try:
+                new_properties = json.loads(rendered_template)
+                self.properties = Util.merge_dicts(self.properties, new_properties)
+                logging.debug("[properties] : %s", self.properties)
+
+                # keep resolving until all variables are gone
+                properties_as_json = json.dumps(self.properties)
+                rendered_template = Template(properties_as_json).render(self.properties)
+                left_over_number_of_variables = rendered_template.count("{{")
+
+                if left_over_number_of_variables >= number_of_variables:
+                    raise ValueError("Unable to resolve all properties, please check your %s file: %s",
+                                     Definition.FILE_NAME,
+                                     rendered_template)
+
+                number_of_variables = left_over_number_of_variables
+                self.properties = json.loads(rendered_template)
+            except ValueError as e:
+                logging.error("Failed to parse JSON %s from template content\n %s", e, rendered_template)
 
     def __version__(self):
         version = self.__run_command__(
@@ -140,11 +161,10 @@ class Definition(object):
 
         try:
             logging.info("[verify] %s", folder)
-            if os.path.isdir(folder):
+            if os.path.isdir(folder) and os.listdir(folder):
                 logging.info("[exists] %s", folder)
             else:
                 logging.info("[resolve] %s", folder)
-                os.makedirs(folder)
                 self.__run_command__(command)
 
             logging.info("[verify] %s", buildr)
@@ -163,7 +183,7 @@ class Definition(object):
             os.chdir(cwd)
 
     def __generate_metadata__(self):
-        #todo write to metadata file
+        # todo write to metadata file
         for project in self.metadata.dependencies:
             logging.debug("%s", project)
 
