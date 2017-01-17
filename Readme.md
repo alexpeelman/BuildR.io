@@ -33,18 +33,21 @@ assuring that all dependencies are available when running the build.
 # Running
 ## From source
 ```
-Alexs-MBP:BuildR.io pea$ python buildr/BuildR.py -d <folder containing buildr.json>
+$ python buildr/BuildR.py -d <folder containing buildr.json>
 ```
 ## Packaging and running on Mac OS X
 ```
-Alexs-MBP:BuildR.io pea$ ./package.sh
+$ ./package.sh
 ... 
 Processing ./dist/buildr-0.0.1a1-py2.py3-none-any.whl
 Installing collected packages: buildr
 Successfully installed buildr-0.0.1a1 
 ```
+
+```
+$ buildr -d <folder containing buildr.json>
+```   
    
-Alexs-MBP:BuildR.io pea$ buildr -d <folder containing buildr.json>   
 # buildr.json   
 
 BuildR starts from a very simple template `buildr.json` that expects 
