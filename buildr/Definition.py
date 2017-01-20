@@ -9,6 +9,12 @@ from jinja2 import Environment, FileSystemLoader, DictLoader, Template, StrictUn
 
 class Definition(object):
     FILE_NAME = "buildr.json"
+
+    # BUILDR DEFAULT PROPERTIES
+    BUILDR_NAMESPACE = "_buildr"
+    BUILDR_FILE = "file"
+
+    # PROPERTIES
     BUILD = "build"
     COMMAND = "command"
     PROJECT = "project"
@@ -20,6 +26,7 @@ class Definition(object):
     RESULT = "result"
     DEPENDENCIES = "dependencies"
     FOLDER = "folder"
+    DEFINITION = "definition"
 
     def __init__(self, options, metadata=Metadata(), path=os.getcwd()):
         os.chdir(path)
@@ -29,21 +36,12 @@ class Definition(object):
         self.project_definition = None
         self.metadata = metadata
         self.path = os.getcwd()
-        # self.file = path + "/" + Definition.FILE_NAME
         self.properties = self.__readFile__(Definition.FILE_NAME)
+        self.__add_default_properties__()
         self.__version__()
         self.__revision__()
         self.__generateProperties__()
         self.__verify_project__versioning__()
-
-    def __verify_project__versioning__(self):
-        other_versions = self.metadata.get_dependencies_with_different_version(self.get_project_definition())
-
-        if not self.options.skip_dependency_checking() and other_versions:
-            logging.error("[version mismatch] The same project with another version has been encountered %s", other_versions)
-            raise ValueError("Version mismatch encountered for %s, other versions %s. Please verify build dependencies.",
-                             self.get_project_definition(),
-                             other_versions)
 
     def __readFile__(self, path):
         logging.debug("[load definition] %s", path)
@@ -52,11 +50,16 @@ class Definition(object):
             with open(path) as data_file:
                 return json.load(data_file)
         except ValueError as e:
-            logging.error("[error] Invalid JSON %s/%s : %s", self.path, path, e)
+            logging.error("[error] Invalid JSON %s/%s : %s. There is probably a syntax error in your definition", self.path, path,
+                          e.message)
             raise e
         except IOError as e:
             logging.error("[error] Problem while loading %s : %s", path, e.strerror)
             raise e
+
+    def __add_default_properties__(self):
+        self.properties[Definition.BUILDR_NAMESPACE] = {}
+        self.properties[Definition.BUILDR_NAMESPACE][Definition.BUILDR_FILE] = Definition.FILE_NAME
 
     def __generateProperties__(self):
         logging.debug(os.getcwd())
@@ -66,7 +69,8 @@ class Definition(object):
             template = env.get_template(Definition.FILE_NAME)
             rendered_template = template.render(self.properties)
         except UndefinedError as e:
-            logging.error("Failed to resolve variable : %s", e.message)
+            logging.error("Failed to resolve variable : %s. Please verify if your definition contains the right variable definitions.",
+                          e.message)
             raise e
 
         number_of_variables = rendered_template.count("{{")
@@ -91,6 +95,15 @@ class Definition(object):
                 self.properties = json.loads(rendered_template)
             except ValueError as e:
                 logging.error("Failed to parse JSON %s from template content\n %s", e, rendered_template)
+
+    def __verify_project__versioning__(self):
+        other_versions = self.metadata.get_dependencies_with_different_version(self.get_project_definition())
+
+        if not self.options.skip_dependency_checking() and other_versions:
+            logging.error("[version mismatch] The same project with another version has been encountered %s", other_versions)
+            raise ValueError("Version mismatch encountered for %s, other versions %s. Please verify build dependencies.",
+                             self.get_project_definition(),
+                             other_versions)
 
     def __version__(self):
         version = self.__run_command__(
@@ -165,7 +178,9 @@ class Definition(object):
                 logging.info("[exists] %s", folder)
             else:
                 logging.info("[resolve] %s", folder)
-                self.__run_command__(command)
+                self.__read_definition__(folder, dependency)
+                if not self.options.skip_source_resolving():
+                    self.__run_command__(command)
 
             logging.info("[verify] %s", buildr)
             if os.path.isfile(buildr):
@@ -174,13 +189,28 @@ class Definition(object):
                 definition.build()
                 self.metadata.add_dependency(definition.get_project_definition())
             else:
-                logging.warning("[dependency node] %s", folder)
+                logging.warning("[leave node] %s", folder)
 
         except Exception as e:
             logging.error("[error %s] could not resolve %s %s", self.get_project_definition(), command, e)
             raise e
         finally:
             os.chdir(cwd)
+
+    """
+    Read the BuildR definition before actually resolving source code
+    """
+
+    def __read_definition__(self, folder, dependency):
+        logging.debug("[resolve] copying %s in %s", Definition.FILE_NAME, os.getcwd())
+        command = dependency[Definition.DEFINITION]
+
+        try:
+            buildr_definition = self.__run_command__(command)
+            with open(os.getcwd() + "/" + Definition.FILE_NAME, "w") as buildr_file:
+                buildr_file.write(buildr_definition)
+        except Exception as e:
+            logging.error("[error %s] Unable to fetch %s via %s", self.get_project_definition(), Definition.FILE_NAME, command)
 
     def __generate_metadata__(self):
         # todo write to metadata file

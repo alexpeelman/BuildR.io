@@ -1,6 +1,7 @@
 import argparse
 import logging
 
+
 class Options(object):
     def __init__(self, args):
         self.parser = argparse.ArgumentParser()
@@ -11,8 +12,11 @@ class Options(object):
                                  default=".")
         self.parser.add_argument("--skip-dependency-checking",
                                  help="Skip dependency checks. Otherwise it is assured that occurrences of different versions "
-                                      "of the same project will raise an exception",
+                                      "of the same project will raise an exception. ",
                                  action="store_true")
+        self.parser.add_argument("-Y", "--YOLO",
+                                 help="See --skip-dependency-checking",
+                                 action="store_true", dest="skip_dependency_checking")
         # self.parser.add_argument("-ar", "--allowed-repositories",
         #                          help="A comma separated list of repository names to resolve binaries from eg. repo-x, repo-y. "
         #                               "Fails when no match exists in the repositories section of buildr.json")
@@ -20,6 +24,9 @@ class Options(object):
                                  help="Print lots of debugging statements ",
                                  action="store_const", dest="loglevel", const=logging.DEBUG, default=logging.INFO,
                                  )
+        self.parser.add_argument("--skip-build",
+                                 help="Skip builds but generate metadata.",
+                                 action="store_true")
         build_group.add_argument("-s", "--source-build",
                                  help="Force builds from source code. Skips binary resolving",
                                  action="store_true")
@@ -28,8 +35,9 @@ class Options(object):
                                       "Applies only to dependencies, the root project is build from source after all "
                                       "binaries are resolved",
                                  action="store_true")
-        build_group.add_argument("--skip-build",
-                                 help="Skip builds but generate metadata",
+        build_group.add_argument("--skip-source-resolving",
+                                 help="Skip source resolving. Fetches buildr.json files but does not resolve sources. Useful for exploring "
+                                      "definitions and building metadata without getting distracted.",
                                  action="store_true")
         build_group.add_argument("--version",
                                  help="Show the version number and exit",
@@ -86,3 +94,6 @@ class Options(object):
 
     def version(self):
         return self.values.version
+
+    def skip_source_resolving(self):
+        return self.values.skip_source_resolving
