@@ -96,4 +96,4 @@ class Options(object):
         return self.values.version
 
     def skip_source_resolving(self):
-        return self.values.skip_source_resolving
+        return self.values.skip_source_resolving or self.values.binary_build

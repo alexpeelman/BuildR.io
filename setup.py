@@ -19,7 +19,7 @@ __version__ = re.search(
     open('buildr/BuildR.py').read()).group(1)
 
 # Get the long description from the README file
-with open(path.join(here, 'README.md'), encoding='utf-8') as f:
+with open(path.join(here, 'Readme.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(

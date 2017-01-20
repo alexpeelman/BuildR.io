@@ -21,7 +21,7 @@ class BuildR(object):
 
 
 def print_ascii_art(path):
-    ascii_file = pkg_resources.resource_filename('buildr', 'ascii.txt')
+    ascii_file = pkg_resources.resource_filename('BuildR', 'ascii.txt')
     f = open(ascii_file, 'r')  # open file in read mode
     data = f.read()  # copy to a string
     f.close()  # close the file
