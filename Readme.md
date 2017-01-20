@@ -88,8 +88,8 @@ An example
    "repositories":[
       {
          "name":"my_yum_repo",
-         "publish":"jfrog rt u **/*.rpm {{ config.artifactory }} my_yum_repo --props name={{ project.name }};version={{ project.version.result }};vcsRevision={{ project.revision.result }}",
-         "resolve":"jfrog rt dl *.rpm --props \"name={{ project.name }};version={{ project.version.result }};vcsRevision={{ project.revision.result }}\" {{ config.artifactory }} my_yum_repo {{ build.dependencies.folder }}"
+         "publish":"jfrog rt u \"**/*.rpm\" my_yum_repo --url {{ config.artifactory }} --props \"name={{ project.name }};version={{ project.version.result }};vcsRevision={{ project.revision.result }}\"",
+         "resolve":"jfrog rt dl \"my-yum-repo/*.rpm\" --url {{ config.artifactory }} --props \"name={{ project.name }};version={{ project.version.result }};vcsRevision={{ project.revision.result }}\""
       }
    ],
    "config":{
@@ -174,8 +174,8 @@ Required properties for a dependency entry are
   "repositories":[
       {
          "name":"my_yum_repo",
-         "publish":"jfrog rt u **/*.rpm {{ config.artifactory }} my_yum_repo --props name={{ project.name }};version={{ project.version.result }};vcsRevision={{ project.revision.result }}",
-         "resolve":"jfrog rt dl *.rpm --props \"name={{ project.name }};version={{ project.version.result }};vcsRevision={{ project.revision.result }}\" {{ config.artifactory }} my_yum_repo {{ build.dependencies.folder }}"
+         "publish":"jfrog rt u \"**/*.rpm\" my_yum_repo --url {{ config.artifactory }} --props \"name={{ project.name }};version={{ project.version.result }};vcsRevision={{ project.revision.result }}\"",
+         "resolve":"jfrog rt dl \"my-yum-repo/*.rpm\" --url {{ config.artifactory }} --props \"name={{ project.name }};version={{ project.version.result }};vcsRevision={{ project.revision.result }}\""
       }
    ]
 }
@@ -190,6 +190,8 @@ Required properties
   
 # TODO
    * Use and expose environment variables
+   * Accept command line variables which override environment variables
+   * Unit tests
  
 # Limitations
 

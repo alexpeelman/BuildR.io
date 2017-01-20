@@ -4,7 +4,7 @@ import logging
 import Util
 from Metadata import Metadata
 from ProjectDefinition import ProjectDefinition
-from jinja2 import Environment, FileSystemLoader, DictLoader, Template, StrictUndefined, UndefinedError
+from jinja2 import Environment, FileSystemLoader, Template, StrictUndefined, UndefinedError
 
 
 class Definition(object):
@@ -64,6 +64,7 @@ class Definition(object):
 
     def __generateProperties__(self):
         logging.debug("[properties] Resolving variables")
+
         try:
             env = Environment(loader=FileSystemLoader(self.path), undefined=StrictUndefined)
             template = env.get_template(Definition.FILE_NAME)
@@ -72,35 +73,31 @@ class Definition(object):
             logging.error("Failed to resolve variable : %s. Please verify if your definition contains the right variable definitions.",
                           e.message)
             raise e
-	
+
         number_of_variables = rendered_template.count("{{")
-	new_properties = json.loads(rendered_template)
+        new_properties = json.loads(rendered_template)
         self.properties = Util.merge_dicts(self.properties, new_properties)
-        
-	while number_of_variables > 0:
+
+        while number_of_variables > 0:
             logging.debug("[properties] Resolving another %d variables", number_of_variables)
 
-	    try:
-                #new_properties = json.loads(rendered_template)
-                #self.properties = Util.merge_dicts(self.properties, new_properties)
-                #logging.debug("[properties] : %s", self.properties)
-
+            try:
                 # keep resolving until all variables are gone
                 properties_as_json = json.dumps(self.properties)
                 rendered_template = Template(properties_as_json).render(self.properties)
                 left_over_number_of_variables = rendered_template.count("{{")
 
                 if left_over_number_of_variables >= number_of_variables:
-                    raise ValueError("Unable to resolve all properties, please check your %s file: %s",
-                                     Definition.FILE_NAME,
-                                     rendered_template)
+                    raise ValueError(
+                        "Unable to resolve all properties, please check your %s file: %s" % (Definition.FILE_NAME, rendered_template)
+                    )
 
                 number_of_variables = left_over_number_of_variables
                 self.properties = json.loads(rendered_template)
             except ValueError as e:
                 logging.error("Failed to parse JSON %s from template content\n %s", e, rendered_template)
 
-	logging.debug("[properties] %s", self.properties)
+        logging.debug("[properties] %s", self.properties)
 
     def __verify_project__versioning__(self):
         other_versions = self.metadata.get_dependencies_with_different_version(self.get_project_definition())
@@ -149,31 +146,31 @@ class Definition(object):
 
         elif source_build_requested or not binary_build_requested:
             self.__build__()
-	    self.__publish__()
+            self.__publish__()
 
     def __build__(self):
         self.__handle_dependencies__()
 
         skip_build = self.options.skip_build()
         if not skip_build:
-	    try:
-            	logging.info("[build] %s", self.get_project_definition())
-            	self.__run_command__(self.properties[Definition.BUILD][Definition.COMMAND])
-	    except Exception as e:
-		logging.error("[error] build failed %s", e)
-		raise e
+            try:
+                logging.info("[build] %s", self.get_project_definition())
+                self.__run_command__(self.properties[Definition.BUILD][Definition.COMMAND])
+            except Exception as e:
+                logging.error("[error] build failed %s", e)
+                raise e
         else:
             logging.info("[build] skipping build %s", self.get_project_definition())
 
     def __publish__(self):
-	for repository in self.properties[Definition.REPOSITORIES]:
-                logging.info("[publish] %s %s", self.get_project_definition(), repository[Definition.NAME])
-                command = repository[Definition.PUBLISH]
-                try:
-                    self.__run_command__(command)
-		except Exception as e:	
-		    logging.info("[error] failed to publish %s : %s", self.get_project_definition(), e)
-	    	    raise e
+        for repository in self.properties[Definition.REPOSITORIES]:
+            logging.info("[publish] %s %s", self.get_project_definition(), repository[Definition.NAME])
+            command = repository[Definition.PUBLISH]
+            try:
+                self.__run_command__(command)
+            except Exception as e:
+                logging.info("[error] failed to publish %s : %s", self.get_project_definition(), e)
+                raise e
 
     def __run_command__(self, command):
         return Util.run_command(command)
@@ -188,13 +185,21 @@ class Definition(object):
             self.__handle_dependency__(dependency)
 
     def __handle_dependency__(self, dependency):
-        command = dependency[Definition.RESOLVE]
-        folder = dependency[Definition.FOLDER]
-        buildr = dependency[Definition.FOLDER] + "/" + Definition.FILE_NAME
         cwd = os.getcwd()
 
         try:
+            self.__resolve_dependency__(dependency)
+            self.__build_dependency__(dependency)
+        finally:
+            os.chdir(cwd)
+
+    def __resolve_dependency__(self, dependency):
+        folder = dependency[Definition.FOLDER]
+        command = dependency[Definition.RESOLVE]
+
+        try:
             logging.info("[verify] %s", folder)
+
             if os.path.isdir(folder) and os.listdir(folder):
                 logging.info("[exists] %s", folder)
             else:
@@ -206,19 +211,20 @@ class Definition(object):
         except Exception as e:
             logging.error("[error %s] could not resolve %s %s", self.get_project_definition(), command, e)
             raise e
-       
-	try:
-     	    logging.info("[verify] %s", buildr)
-            if os.path.isfile(buildr):
-                logging.info("[build node] %s", buildr)
-                definition = Definition(self.options, path=folder, metadata=self.metadata)
-                definition.build()
-                self.metadata.add_dependency(definition.get_project_definition())
-            else:
-                logging.warning("[leaf node] %s", folder)
 
-        finally:
-            os.chdir(cwd)
+    def __build_dependency__(self, dependency):
+        folder = dependency[Definition.FOLDER]
+        buildr = dependency[Definition.FOLDER] + "/" + Definition.FILE_NAME
+
+        logging.info("[verify] %s", buildr)
+
+        if os.path.isfile(buildr):
+            logging.info("[build node] %s", buildr)
+            definition = Definition(self.options, path=folder, metadata=self.metadata)
+            definition.build()
+            self.metadata.add_dependency(definition.get_project_definition())
+        else:
+            logging.warning("[leaf node] %s", folder)
 
     """
     Read the BuildR definition before actually resolving source code
@@ -230,11 +236,13 @@ class Definition(object):
 
         try:
             buildr_definition = self.__run_command__(command)
-	    if not os.path.exists(folder):
-		os.makedirs(folder)
+
+            if not os.path.exists(folder):
+                os.makedirs(folder)
 
             with open(folder + "/" + Definition.FILE_NAME, "w") as buildr_file:
                 buildr_file.write(json.dumps(json.loads(buildr_definition), indent=4))
+
         except Exception as e:
             logging.error("[error %s] Unable to fetch %s via %s : %s", self.get_project_definition(), Definition.FILE_NAME, command, e)
 
