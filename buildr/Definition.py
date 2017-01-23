@@ -100,7 +100,7 @@ class Definition(object):
 
             try:
                 # keep resolving until all variables are gone
-                properties_as_json = json.dumps(self.properties)
+                properties_as_json = json.dumps(self.properties, default=Util.to_json)
                 merged_properties = Util.merge_dicts_and_copy(self.properties, self.config, os.environ)
                 rendered_template = Template(properties_as_json).render(merged_properties)
                 left_over_number_of_variables = rendered_template.count("{{")
