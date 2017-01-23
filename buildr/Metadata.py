@@ -3,7 +3,9 @@ from ProjectDefinition import ProjectDefinition
 
 
 class Metadata(object):
-    def __init__(self):
+    def __init__(self, project):
+        self.__verify_project_definition__(project)
+        self.project = project
         self.dependencies = []
 
     def __verify_project_definition__(self, project_definition):
@@ -14,6 +16,10 @@ class Metadata(object):
         logging.debug("Adding dependency %s", project_definition)
         self.__verify_project_definition__(project_definition)
         self.dependencies.append(project_definition)
+
+    def add_dependencies(self, dependencies):
+        for dependency in dependencies:
+            self.add_dependency(dependency)
 
     def get_dependencies_with_different_version(self, project_definition):
         self.__verify_project_definition__(project_definition)

@@ -55,3 +55,10 @@ def merge_dicts_and_copy(*args):
         result = merge_dicts(result, arg)
 
     return result
+
+
+def to_json(obj):
+    try:
+        return obj.toJSON()
+    except:
+        return obj.__dict__

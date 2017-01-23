@@ -9,6 +9,7 @@ from jinja2 import Environment, FileSystemLoader, Template, StrictUndefined, Und
 
 class Definition(object):
     FILE_NAME = "buildr.json"
+    METADATA_FILE_NAME = "buildr.metadata.json"
 
     # BUILDR DEFAULT PROPERTIES
     BUILDR_NAMESPACE = "_buildr"
@@ -29,21 +30,25 @@ class Definition(object):
     FOLDER = "folder"
     DEFINITION = "definition"
 
-    def __init__(self, options, metadata=Metadata(), path=os.getcwd()):
+    def __init__(self, options, path=os.getcwd()):
         os.chdir(path)
         logging.info("[cwd] %s", os.getcwd())
 
         self.options = options
         self.project_definition = None
-        self.metadata = metadata
+        self.metadata = None
         self.path = os.getcwd()
+        self.__resolve_variables__()
+        self.metadata = Metadata(self.get_project_definition())
+        self.__verify_project_versioning__()
+
+    def __resolve_variables__(self, skip_version=False, skip_revision=False):
         self.properties = self.__read_file__(Definition.FILE_NAME)
         self.config = self.__read_config_file__()
         self.__add_default_properties__()
         self.__version__()
         self.__revision__()
         self.__generateProperties__()
-        self.__verify_project_versioning__()
 
     def __read_file__(self, path):
         logging.debug("[load definition] %s", path)
@@ -68,6 +73,10 @@ class Definition(object):
     def __add_default_properties__(self):
         self.properties[Definition.BUILDR_NAMESPACE] = {}
         self.properties[Definition.BUILDR_NAMESPACE][Definition.BUILDR_FILE] = Definition.FILE_NAME
+        self.properties[Definition.BUILDR_NAMESPACE][Definition.DEPENDENCIES] = []
+
+        if self.metadata:
+            self.properties[Definition.BUILDR_NAMESPACE][Definition.DEPENDENCIES] = self.metadata.dependencies
 
     def __generateProperties__(self):
         logging.debug("[properties] Resolving variables")
@@ -118,7 +127,7 @@ class Definition(object):
                              other_versions)
 
     def __version__(self):
-        version = self.__run_command__(
+        version = Util.run_command(
             self.properties[Definition.PROJECT][Definition.VERSION][Definition.COMMAND],
         )
 
@@ -126,7 +135,7 @@ class Definition(object):
         logging.info("[version] %s", version)
 
     def __revision__(self):
-        revision = self.__run_command__(
+        revision = Util.run_command(
             self.properties[Definition.PROJECT][Definition.REVISION][Definition.COMMAND],
         )
 
@@ -146,7 +155,7 @@ class Definition(object):
                 logging.info("[resolve] %s", repository[Definition.NAME])
                 command = repository[Definition.RESOLVE]
                 try:
-                    self.__run_command__(command)
+                    Util.run_command(command)
                 except ValueError as e:
                     logging.error("[resolve] error while resolving %s via %s : %s", self.get_project_definition(), command, e)
                     if self.options.binary_build():
@@ -166,7 +175,7 @@ class Definition(object):
         if not self.options.skip_build():
             try:
                 logging.info("[build] %s", self.get_project_definition())
-                self.__run_command__(self.properties[Definition.BUILD][Definition.COMMAND])
+                Util.run_command(self.properties[Definition.BUILD][Definition.COMMAND])
             except Exception as e:
                 logging.error("[error] build failed %s", e)
                 raise e
@@ -185,22 +194,22 @@ class Definition(object):
             logging.info("[publish] %s %s", self.get_project_definition(), repository[Definition.NAME])
             command = repository[Definition.PUBLISH]
             try:
-                self.__run_command__(command)
+                Util.run_command(command)
             except Exception as e:
                 logging.info("[error] failed to publish %s : %s", self.get_project_definition(), e)
                 raise e
 
-    def __run_command__(self, command):
-        return Util.run_command(command)
-
     def __handle_dependencies__(self):
-        if not self.properties.has_key(Definition.DEPENDENCIES):
+        if not self.properties.has_key(Definition.DEPENDENCIES) or not self.properties[Definition.DEPENDENCIES]:
             logging.info("[dependency management] %s has no dependencies", self.get_project_definition())
             return
 
         logging.info("[dependency management] %s", self.get_project_definition())
         for dependency in self.properties[Definition.DEPENDENCIES]:
             self.__handle_dependency__(dependency)
+
+        logging.info("[dependency management] reloading variables in %s after dependency changes", self.get_project_definition())
+        self.__resolve_variables__()
 
     def __handle_dependency__(self, dependency):
         cwd = os.getcwd()
@@ -224,7 +233,7 @@ class Definition(object):
                 logging.info("[resolve] %s", folder)
                 self.__read_definition__(folder, dependency)
                 if not self.options.skip_source_resolving():
-                    self.__run_command__(command)
+                    Util.run_command(command)
 
         except Exception as e:
             logging.error("[error %s] could not resolve %s %s", self.get_project_definition(), command, e)
@@ -238,11 +247,12 @@ class Definition(object):
 
         if os.path.isfile(buildr):
             logging.info("[build node] %s", buildr)
-            definition = Definition(self.options, path=folder, metadata=self.metadata)
+            definition = Definition(self.options, path=folder)
             definition.build()
+            self.metadata.add_dependencies(definition.metadata.dependencies)
             self.metadata.add_dependency(definition.get_project_definition())
         else:
-            logging.warning("[leaf node] %s", folder)
+            logging.warning("[leaf node] %s contains no %s", folder, Definition.FILE_NAME)
 
     """
     Read the BuildR definition before actually resolving source code
@@ -253,7 +263,7 @@ class Definition(object):
         command = dependency[Definition.DEFINITION]
 
         try:
-            buildr_definition = self.__run_command__(command)
+            buildr_definition = Util.run_command(command)
 
             if not os.path.exists(folder):
                 os.makedirs(folder)
@@ -265,9 +275,12 @@ class Definition(object):
             logging.error("[error %s] Unable to fetch %s via %s : %s", self.get_project_definition(), Definition.FILE_NAME, command, e)
 
     def __generate_metadata__(self):
-        # todo write to metadata file
-        for project in self.metadata.dependencies:
-            logging.debug("%s", project)
+        try:
+            with open(Definition.METADATA_FILE_NAME, 'w') as file:
+                json.dump(self.metadata, file, default=Util.to_json, indent=4, sort_keys=True)
+                logging.info("[metadata] the metadata of %s can be found in %s/%s", self.get_project_definition(), os.getcwd(), Definition.METADATA_FILE_NAME)
+        except Exception as e:
+            logging.error("[error %s] Unable to write metadata : %s", self.get_project_definition(), e)
 
     def get_project_definition(self):
         if not self.project_definition:
@@ -283,6 +296,7 @@ class Definition(object):
         logging.info("[project] %s", self.get_project_definition())
         self.__resolve_or_build__()
         self.__generate_metadata__()
+        return self
 
     def properties(self):
         return self.properties
