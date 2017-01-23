@@ -37,14 +37,15 @@ class Definition(object):
         self.project_definition = None
         self.metadata = metadata
         self.path = os.getcwd()
-        self.properties = self.__readFile__(Definition.FILE_NAME)
+        self.properties = self.__read_file__(Definition.FILE_NAME)
+        self.config = self.__read_config_file__()
         self.__add_default_properties__()
         self.__version__()
         self.__revision__()
         self.__generateProperties__()
-        self.__verify_project__versioning__()
+        self.__verify_project_versioning__()
 
-    def __readFile__(self, path):
+    def __read_file__(self, path):
         logging.debug("[load definition] %s", path)
 
         try:
@@ -58,6 +59,12 @@ class Definition(object):
             logging.error("[error] Problem while loading %s : %s", path, e.strerror)
             raise e
 
+    def __read_config_file__(self):
+        if self.options.config_file():
+            return self.__read_file__(self.options.config_file())
+
+        return {}
+
     def __add_default_properties__(self):
         self.properties[Definition.BUILDR_NAMESPACE] = {}
         self.properties[Definition.BUILDR_NAMESPACE][Definition.BUILDR_FILE] = Definition.FILE_NAME
@@ -68,9 +75,10 @@ class Definition(object):
         try:
             env = Environment(loader=FileSystemLoader(self.path), undefined=StrictUndefined)
             template = env.get_template(Definition.FILE_NAME)
-            rendered_template = template.render(self.properties)
+            merged_properties = Util.merge_dicts_and_copy(os.environ, self.config, self.properties)
+            rendered_template = template.render(merged_properties)
         except UndefinedError as e:
-            logging.error("Failed to resolve variable : %s. Please verify if your definition contains the right variable definitions.",
+            logging.error("Failed to resolve variable : %s. Please verify if your definition contains the right variables.",
                           e.message)
             raise e
 
@@ -84,7 +92,8 @@ class Definition(object):
             try:
                 # keep resolving until all variables are gone
                 properties_as_json = json.dumps(self.properties)
-                rendered_template = Template(properties_as_json).render(self.properties)
+                merged_properties = Util.merge_dicts_and_copy(self.properties, self.config, os.environ)
+                rendered_template = Template(properties_as_json).render(merged_properties)
                 left_over_number_of_variables = rendered_template.count("{{")
 
                 if left_over_number_of_variables >= number_of_variables:
@@ -99,7 +108,7 @@ class Definition(object):
 
         logging.debug("[properties] %s", self.properties)
 
-    def __verify_project__versioning__(self):
+    def __verify_project_versioning__(self):
         other_versions = self.metadata.get_dependencies_with_different_version(self.get_project_definition())
 
         if not self.options.skip_dependency_checking() and other_versions:
@@ -125,34 +134,36 @@ class Definition(object):
         logging.info("[revision] %s", revision)
 
     def __resolve_or_build__(self):
-        source_build_requested = self.options.source_build()
-        binary_build_requested = self.options.binary_build() and self.properties[Definition.REPOSITORIES]
+        # scoping in python :rolleyes:
+        SOURCE_BUILD_REQUESTED = "source_build_requested"
 
-        if binary_build_requested:
+        options = {
+            SOURCE_BUILD_REQUESTED: self.options.source_build() or not self.properties[Definition.REPOSITORIES]
+        }
+
+        if not options[SOURCE_BUILD_REQUESTED]:
             for repository in self.properties[Definition.REPOSITORIES]:
                 logging.info("[resolve] %s", repository[Definition.NAME])
                 command = repository[Definition.RESOLVE]
                 try:
                     self.__run_command__(command)
                 except ValueError as e:
-                    logging.error("Error while resolving %s via %s : %s", self.get_project_definition(), command, e)
-                    if binary_build_requested:
-                        logging.debug("[resolve] binary build requested, raising error and aborting build %s",
-                                      self.get_project_definition())
+                    logging.error("[resolve] error while resolving %s via %s : %s", self.get_project_definition(), command, e)
+                    if self.options.binary_build():
+                        logging.debug("[resolve] binary build explicitly requested, aborting build %s", self.get_project_definition())
                         raise e
                     else:
                         logging.debug("[resolve] forcing source build of %s", self.get_project_definition())
-                        source_build_requested = True
+                        options[SOURCE_BUILD_REQUESTED] = True
 
-        elif source_build_requested or not binary_build_requested:
+        if options[SOURCE_BUILD_REQUESTED]:
             self.__build__()
             self.__publish__()
 
     def __build__(self):
         self.__handle_dependencies__()
 
-        skip_build = self.options.skip_build()
-        if not skip_build:
+        if not self.options.skip_build():
             try:
                 logging.info("[build] %s", self.get_project_definition())
                 self.__run_command__(self.properties[Definition.BUILD][Definition.COMMAND])
@@ -160,9 +171,16 @@ class Definition(object):
                 logging.error("[error] build failed %s", e)
                 raise e
         else:
-            logging.info("[build] skipping build %s", self.get_project_definition())
+            logging.info("[build] skip build of %s", self.get_project_definition())
 
     def __publish__(self):
+        if self.options.skip_build or not self.options.publish:
+            logging.info("[publish] skip publishing of %s", self.get_project_definition())
+            return
+
+        if not self.properties[Definition.REPOSITORIES]:
+            logging.info("[publish] skip publishing of %s, no repositories defined", self.get_project_definition())
+
         for repository in self.properties[Definition.REPOSITORIES]:
             logging.info("[publish] %s %s", self.get_project_definition(), repository[Definition.NAME])
             command = repository[Definition.PUBLISH]

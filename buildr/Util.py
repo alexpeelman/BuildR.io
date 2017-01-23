@@ -43,7 +43,15 @@ def merge_dicts(a, b, path=None):
                     else:
                         value_a[idx] = val
             else:
-               a[key] = value_b
+                a[key] = value_b
         else:
             a[key] = b[key]
     return a
+
+
+def merge_dicts_and_copy(*args):
+    result = {}
+    for arg in args:
+        result = merge_dicts(result, arg)
+
+    return result

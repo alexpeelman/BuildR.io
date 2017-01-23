@@ -10,10 +10,12 @@
 
 1. [Overview](#overview)
 2. [Running](#running)
-3. [buildr.json](#buildr.json)
-4. [TODO](#todo)
-5. [Limitations](#limitations)
-6. [Copyright and License](#license)
+3. [Behaviour](#behaviour)
+4. [buildr.json](#buildr.json)
+5. [Variables](#variables.json)
+6. [TODO](#todo)
+7. [Limitations](#limitations)
+8. [Copyright and License](#copyright and License)
 
 # Overview
 
@@ -48,6 +50,18 @@ Successfully installed buildr-0.0.1a1
 $ buildr -d <folder containing buildr.json>
 ```   
    
+# Behaviour
+
+* BuildR tries to `resolve dependencies` from the given repositories. If this `fails` BuildR automatically falls back to building the dependency `from source` code.
+* Build results are `not automatically uploaded` to the repositories, this must be requested explicitly by passing the `-p` or `--publish` option commandline. This is done to avoid accidental overrides.
+
+For all possible options, please summon help
+
+```
+$ buildr -h
+```
+
+
 # buildr.json   
 
 BuildR starts from a very simple template `buildr.json` that expects 
@@ -107,7 +121,7 @@ An example
 
 Lets describe each part of the definition file in depth.
  
-## project
+## Project
 
 ```
 {
@@ -132,7 +146,7 @@ The project property describes the metadata related to the source code. Required
    In this particular case the git commit hash is extracted via a bash command.
    
    
-## build
+## Build
 ```
 {
   "build":{
@@ -151,7 +165,7 @@ The project property describes the metadata related to the source code. Required
 The build property has only one required property
   * command, which is `executed` to build the source code. This can be a one liner, BASH script, a make command, ...
   
-## dependencies
+## Dependencies
 ```  
 {
   "dependencies":[
@@ -168,7 +182,7 @@ Required properties for a dependency entry are
   * folder, used to verify if a dependency has been resolved by checking the existence (not the content) of the folder
   * resolve, a command used to fetch the dependency. Please do pay attention that the resolved result must end up in the same folder described in the previous bullet point. 
 
-## repositories
+## Repositories
 ```
 {
   "repositories":[
@@ -187,17 +201,73 @@ Required properties
    that the binaries can be resolved `based on the data` found in the buildr.json file. 
  * resolve, when a dependency is handled BuildR first tries to fetch the binaries from the repositories by invoking this command. 
 
+# Variables
+## Environment variables
+BuildR loads environment variables by default and they can be used directly in buildr.json definitions.
+There is no need to specify any command line option to make use of this feature.
+
+```
+$ cat buildr.json
+{
+  "project": {
+    "name": "Project {{ MY_ENV_VAR }}",
+    "version": {
+      "command": "echo '1.0.0_SNAPSHOT'"
+    },
+    "revision": {
+      "command": "echo 'alpha'"
+    }
+    
+    // ... skipped for brevity
+}
+```
+
+```
+$ export MY_ENV_VAR=magic-unicorns
+```
+
+```
+$ buildr
+
+INFO Running BuildR
+INFO [command] echo '1.0.0_SNAPSHOT'
+INFO [version] 1.0.0_SNAPSHOT
+INFO [command] echo 'alpha'
+INFO [revision] alpha
+INFO [project] Project magic-unicorns 1.0.0_SNAPSHOT alpha
+```
+
+## Config file
+A second option is to load variables from a JSON file via the `-c` or `--config` commandline parameter. 
+The config file has higher precedence than environment variables and will override any previously defined environment variable.
+
+```
+$ cat config.json 
+{
+  "MY_ENV_VAR" : "fairies"
+}
+```
+
+```
+$ buildr -c config.json
+
+INFO Running BuildR
+INFO [command] echo '1.0.0_SNAPSHOT'
+INFO [version] 1.0.0_SNAPSHOT
+INFO [command] echo 'alpha'
+INFO [revision] alpha
+INFO [project] Project fairies 1.0.0_SNAPSHOT alpha
+```
+
   
 # TODO
-   * Use and expose environment variables
-   * Accept command line variables which override environment variables
    * Unit tests
  
 # Limitations
 
 This project is in POC and incubation phase.
 
-#Copyright and License
+# Copyright and License
 
 Copyright 2016 Alex Peelman
 
